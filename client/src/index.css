@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-dark: #06060c;
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+}
+
+.mesh-gradient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.mesh-1 {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  top: -20%;
+  left: -10%;
+  background: radial-gradient(circle at 30% 30%, rgba(129, 140, 248, 0.35), transparent 55%);
+  filter: blur(40px);
+}
+
+.mesh-2 {
+  position: absolute;
+  width: 50vw;
+  height: 50vw;
+  bottom: -15%;
+  right: -5%;
+  background: radial-gradient(circle at 70% 70%, rgba(236, 72, 153, 0.28), transparent 50%);
+  filter: blur(48px);
+}
+
+.mesh-3 {
+  position: absolute;
+  width: 40vw;
+  height: 40vw;
+  top: 40%;
+  left: 35%;
+  background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15), transparent 60%);
+  filter: blur(60px);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.console-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(129, 140, 248, 0.35) transparent;
+}
+
+.console-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.console-scroll::-webkit-scrollbar-thumb {
+  background: rgba(129, 140, 248, 0.35);
+  border-radius: 999px;
+}

@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client"
   },
   "keywords": [
     "harvest",
