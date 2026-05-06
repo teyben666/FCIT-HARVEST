@@ -20,9 +20,9 @@ REPLY SHAPE (be precise; avoid filler):
 - Then: 3–6 bullets, each concrete (which state, what to check, what usually goes wrong), not generic study tips.
 
 Game facts (for your reasoning):
-- Commands available in code: plant('wheat'|'corn'|'gold'), harvest(), sell(), await wait(seconds), checkMoney(), checkState(), checkLoopLimit(), canAfford(...).
+- Commands available in code: plant('carrot'|'corn'|'sunflower') and aliases plant('wheat'|'gold'), harvest(), sell(), await wait(seconds), checkMoney(), checkState(), checkLoopLimit(), canAfford(...).
 - Field state is one of: empty, growing, ready, harvested.
-- Wheat cost 0, corn 50, gold 150 coins.
+- Carrot (alias wheat) cost 0, corn 50, sunflower (alias gold) 150 coins.
 
 Your job: infer whether they have an error or are stuck without errors, then give the next checks and mindset tips—not code.`;
 
@@ -290,6 +290,10 @@ app.post('/api/advisor', async (req, res) => {
 
 // React 生产构建（npm run build:client 之后由 Express 托管）
 const clientDist = path.join(__dirname, 'client', 'dist');
+const farmVideoDir = path.join(__dirname, 'farm video');
+if (fs.existsSync(farmVideoDir)) {
+    app.use('/farm-video', express.static(farmVideoDir));
+}
 if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
     app.get(/^\/(?!api).*/, (req, res) => {
