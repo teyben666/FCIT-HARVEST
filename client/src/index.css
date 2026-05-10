@@ -1,0 +1,71 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg-dark: #0a0a12;
+}
+
+@layer components {
+  .glass-panel {
+    @apply border border-white/10 bg-white/5 backdrop-blur-xl;
+  }
+}
+
+.mesh-gradient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mesh-1,
+.mesh-2,
+.mesh-3 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.45;
+}
+
+.mesh-1 {
+  width: min(42vw, 520px);
+  height: min(42vw, 520px);
+  background: #6366f1;
+  top: -12%;
+  left: -8%;
+}
+
+.mesh-2 {
+  width: min(38vw, 480px);
+  height: min(38vw, 480px);
+  background: #a855f7;
+  bottom: -8%;
+  right: -6%;
+}
+
+.mesh-3 {
+  width: min(32vw, 400px);
+  height: min(32vw, 400px);
+  background: #ec4899;
+  top: 38%;
+  left: 35%;
+}
+
+.console-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.console-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.console-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}

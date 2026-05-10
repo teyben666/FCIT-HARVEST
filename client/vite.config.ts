@@ -6,6 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // LAN: bind all interfaces; allow Host header when using http://<your-ip>:5173 (Vite 6+ host check)
+    host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

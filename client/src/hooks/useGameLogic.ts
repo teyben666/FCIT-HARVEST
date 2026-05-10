@@ -58,6 +58,10 @@ const INITIAL: GameRef = {
   timeLeft: 0,
 }
 
+/** Practice mode: cap runaway scripts. Challenge: must be >= App.tsx CHALLENGE_SECONDS (120). */
+const PRACTICE_MAX_EXECUTION_MS = 30_000
+const CHALLENGE_MAX_EXECUTION_MS = 130_000
+
 function useTick() {
   return useReducer((n: number) => n + 1, 0)[1]
 }
@@ -241,7 +245,8 @@ export function useGameLogic() {
   const runUserCode = useCallback(
     async (code: string, challengeMode: boolean) => {
       const codeStartTime = Date.now()
-      const maxExecutionTime = 30_000
+      const maxExecutionTime = challengeMode ? CHALLENGE_MAX_EXECUTION_MS : PRACTICE_MAX_EXECUTION_MS
+      const maxExecutionSec = Math.round(maxExecutionTime / 1000)
       let loopIterationCount = 0
       const maxLoopIterations = challengeMode ? 10_000 : 1000
 
@@ -251,7 +256,7 @@ export function useGameLogic() {
           throw new Error(`Too many loop iterations (${maxLoopIterations} max).`)
         }
         if (Date.now() - codeStartTime > maxExecutionTime) {
-          throw new Error('Execution timed out (30s max).')
+          throw new Error(`Execution timed out (${maxExecutionSec}s max).`)
         }
       }
 
