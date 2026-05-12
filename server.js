@@ -292,7 +292,19 @@ app.post('/api/advisor', async (req, res) => {
 const clientDist = path.join(__dirname, 'client', 'dist');
 const farmVideoDir = path.join(__dirname, 'farm video');
 if (fs.existsSync(farmVideoDir)) {
-    app.use('/farm-video', express.static(farmVideoDir));
+    // Allow <video> from Vite dev (:5173) hitting Express (:3000) on another origin (mobile browsers).
+    app.use('/farm-video', (req, res, next) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        next();
+    });
+    app.use(
+        '/farm-video',
+        express.static(farmVideoDir, {
+            maxAge: 86400000, // 1d — browsers reuse clips between reloads / state changes
+            etag: true,
+            lastModified: true,
+        }),
+    );
 }
 if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));

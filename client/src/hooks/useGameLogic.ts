@@ -70,6 +70,7 @@ export function useGameLogic() {
   const tick = useTick()
   const game = useRef<GameRef>({ ...INITIAL })
   const growTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const stopRequestedRef = useRef(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
 
   const addLog = useCallback((text: string, type: LogType = 'output') => {
@@ -235,6 +236,7 @@ export function useGameLogic() {
   }, [harvest, sell])
 
   const resetGame = useCallback(() => {
+    stopRequestedRef.current = false
     clearGrowTimer()
     game.current = { ...INITIAL }
     flush()
@@ -242,15 +244,27 @@ export function useGameLogic() {
 
   useEffect(() => () => clearGrowTimer(), [clearGrowTimer])
 
+  const stopExecution = useCallback(() => {
+    stopRequestedRef.current = true
+  }, [])
+
   const runUserCode = useCallback(
     async (code: string, challengeMode: boolean) => {
+      stopRequestedRef.current = false
       const codeStartTime = Date.now()
       const maxExecutionTime = challengeMode ? CHALLENGE_MAX_EXECUTION_MS : PRACTICE_MAX_EXECUTION_MS
       const maxExecutionSec = Math.round(maxExecutionTime / 1000)
       let loopIterationCount = 0
       const maxLoopIterations = challengeMode ? 10_000 : 1000
 
+      const ensureNotStopped = () => {
+        if (stopRequestedRef.current) {
+          throw new Error('Execution stopped.')
+        }
+      }
+
       const checkLoopLimit = () => {
+        ensureNotStopped()
         loopIterationCount += 1
         if (loopIterationCount > maxLoopIterations) {
           throw new Error(`Too many loop iterations (${maxLoopIterations} max).`)
@@ -289,17 +303,47 @@ export function useGameLogic() {
             `return (async function () {\n${code}\n})();`,
           )
           return fn(
-            plant,
-            harvest,
-            sell,
-            wait,
-            checkMoney,
-            checkState,
+            (...args: [string]) => {
+              ensureNotStopped()
+              return plant(...args)
+            },
+            () => {
+              ensureNotStopped()
+              return harvest()
+            },
+            () => {
+              ensureNotStopped()
+              return sell()
+            },
+            async (...args: [number]) => {
+              ensureNotStopped()
+              return wait(...args)
+            },
+            () => {
+              ensureNotStopped()
+              return checkMoney()
+            },
+            () => {
+              ensureNotStopped()
+              return checkState()
+            },
             checkLoopLimit,
-            canAfford,
-            plantAndSell,
-            harvestAndSell,
-            waitForReady,
+            (...args: [string]) => {
+              ensureNotStopped()
+              return canAfford(...args)
+            },
+            (...args: [string]) => {
+              ensureNotStopped()
+              return plantAndSell(...args)
+            },
+            () => {
+              ensureNotStopped()
+              return harvestAndSell()
+            },
+            () => {
+              ensureNotStopped()
+              return waitForReady()
+            },
           )
         }
         const fn = new Function(
@@ -317,17 +361,47 @@ export function useGameLogic() {
           `${code}`,
         )
         return fn(
-          plant,
-          harvest,
-          sell,
-          wait,
-          checkMoney,
-          checkState,
+          (...args: [string]) => {
+            ensureNotStopped()
+            return plant(...args)
+          },
+          () => {
+            ensureNotStopped()
+            return harvest()
+          },
+          () => {
+            ensureNotStopped()
+            return sell()
+          },
+          (...args: [number]) => {
+            ensureNotStopped()
+            return wait(...args)
+          },
+          () => {
+            ensureNotStopped()
+            return checkMoney()
+          },
+          () => {
+            ensureNotStopped()
+            return checkState()
+          },
           checkLoopLimit,
-          canAfford,
-          plantAndSell,
-          harvestAndSell,
-          waitForReady,
+          (...args: [string]) => {
+            ensureNotStopped()
+            return canAfford(...args)
+          },
+          (...args: [string]) => {
+            ensureNotStopped()
+            return plantAndSell(...args)
+          },
+          () => {
+            ensureNotStopped()
+            return harvestAndSell()
+          },
+          () => {
+            ensureNotStopped()
+            return waitForReady()
+          },
         )
       }
 
@@ -344,6 +418,7 @@ export function useGameLogic() {
       } catch (err) {
         addLog(`❌ ${err instanceof Error ? err.message : String(err)}`, 'error')
       } finally {
+        stopRequestedRef.current = false
         Reflect.deleteProperty(globalThis, 'money')
         Reflect.deleteProperty(globalThis, 'state')
       }
@@ -392,6 +467,7 @@ export function useGameLogic() {
     resetGame,
     setLogs,
     runUserCode,
+    stopExecution,
     peekMoney,
     chargeCoins,
   }

@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "dev:client": "npm run dev --prefix client",
     "build:client": "npm run build --prefix client",
-    "start:lan": "npm run build:client && node server.js"
+    "start:lan": "npm run build:client && node server.js",
+    "db:reset": "node scripts/reset-db.js"
   },
   "keywords": [
     "harvest",

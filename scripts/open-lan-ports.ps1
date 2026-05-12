@@ -1,10 +1,13 @@
-# Allow inbound TCP 3000 (Node) and 5173 (Vite dev) on private networks.
+# Allow inbound TCP 3000 (Node) and 5173 (Vite dev).
+# Uses Profile Any (Private + Public + Domain) so Windows "移动热点" / Mobile Hotspot works —
+# hotspot is often classified as Public; rules with only Private would not apply.
 #
-# MUST run elevated: Start -> type "PowerShell" -> right-click "Windows PowerShell" ->
-#   Run as administrator -> cd to this folder -> .\open-lan-ports.ps1
+# MUST run elevated: Start -> type "PowerShell" -> right-click -> Run as administrator
+#   cd ...\farm-coding-game\scripts
+#   .\open-lan-ports.ps1
 #
-# If you prefer GUI: Windows Security -> Firewall & network protection ->
-#   Advanced settings -> Inbound Rules -> New Rule -> Port -> TCP -> 3000 -> Allow (repeat for 5173).
+# Phone on YOUR PC's hotspot: in ipconfig find "本地连接* xx" / vEthernet / 192.168.137.1
+#   then open http://192.168.137.1:5173 or :3000 (not your home Wi-Fi IP).
 
 $ErrorActionPreference = 'Stop'
 
@@ -14,12 +17,8 @@ $isAdmin = (
 
 if (-not $isAdmin) {
     Write-Host ''
-    Write-Host 'ERROR: Not running as Administrator. Firewall rules were NOT added.' -ForegroundColor Red
-    Write-Host ''
-    Write-Host 'Fix: Close this window. Open Start, type PowerShell, right-click -> Run as administrator.'
-    Write-Host 'Then: cd ' -NoNewline
-    Write-Host $PSScriptRoot -ForegroundColor Yellow
-    Write-Host 'Then: .\open-lan-ports.ps1'
+    Write-Host 'ERROR: Not running as Administrator.' -ForegroundColor Red
+    Write-Host 'Open PowerShell -> Run as administrator, then cd here and run .\open-lan-ports.ps1'
     Write-Host ''
     exit 1
 }
@@ -32,12 +31,14 @@ $rules = @(
 foreach ($r in $rules) {
     $existing = Get-NetFirewallRule -DisplayName $r.Name -ErrorAction SilentlyContinue
     if ($existing) {
-        Write-Host "Already exists: $($r.Name)"
+        Set-NetFirewallRule -DisplayName $r.Name -Profile Any -ErrorAction Stop
+        Write-Host "Updated to all profiles: $($r.Name)" -ForegroundColor Green
         continue
     }
-    New-NetFirewallRule -DisplayName $r.Name -Direction Inbound -Action Allow -Protocol TCP -LocalPort $r.Port -Profile Private -ErrorAction Stop | Out-Null
+    New-NetFirewallRule -DisplayName $r.Name -Direction Inbound -Action Allow -Protocol TCP -LocalPort $r.Port -Profile Any -ErrorAction Stop | Out-Null
     Write-Host "Created: $($r.Name)" -ForegroundColor Green
 }
 
 Write-Host ''
-Write-Host 'Done. On your phone use http://<PC-LAN-IP>:5173 (dev) or :3000 after npm run start:lan' -ForegroundColor Cyan
+Write-Host 'Home Wi-Fi: http://<WLAN IPv4>:5173 or :3000' -ForegroundColor Cyan
+Write-Host 'PC Mobile Hotspot: often http://192.168.137.1:5173 — check ipconfig for hotspot adapter.' -ForegroundColor Cyan

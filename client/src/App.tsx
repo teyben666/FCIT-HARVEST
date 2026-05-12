@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Play,
@@ -11,6 +11,7 @@ import {
   Trash2,
   Eraser,
   RotateCcw,
+  Square,
   Zap,
   Sparkles,
   ChevronUp,
@@ -34,37 +35,60 @@ type View = 'home' | 'game' | 'leaderboard' | 'settings'
 type CommandEntry = { cmd: string; insertAs?: string; cost?: string }
 type CommandCategory = { id: string; entries: CommandEntry[] }
 
-const CHALLENGE_GOAL = 2000
+const CHALLENGE_GOAL = 1100
 const CHALLENGE_SECONDS = 120
 /** Challenge mode only: advisor costs this percent of current coins (min 1). Practice mode is free. */
 const ADVISOR_FEE_PERCENT = 10
 
-const VIDEO_BASE = '/farm-video'
+const DEFAULT_DEV_BACKEND_PORT = import.meta.env.VITE_BACKEND_PORT || '3000'
 
-const MAIN_FIELD_CLIPS = {
-  emptyLoop: `${VIDEO_BASE}/b0 dirt land idle 3s.mp4`,
-  wheat: {
-    grow: `${VIDEO_BASE}/b1 carrot grow 3s.mp4`,
-    readyLoop: `${VIDEO_BASE}/b2 carrot idle 3s.mp4`,
-    harvest: `${VIDEO_BASE}/b3carrot harvest 1s.mp4`,
-    sell: `${VIDEO_BASE}/b4 carrot sell 1s.mp4`,
-    harvestedLoop: `${VIDEO_BASE}/b13 carrot ready sell 3s.mp4`,
-  },
-  corn: {
-    grow: `${VIDEO_BASE}/b5 corn grow 5s.mp4`,
-    readyLoop: `${VIDEO_BASE}/b6 corn idle 3s.mp4`,
-    harvest: `${VIDEO_BASE}/b7 corn harvest 1s.mp4`,
-    sell: `${VIDEO_BASE}/b8 corn sell 1s.mp4`,
-    harvestedLoop: `${VIDEO_BASE}/b14 corn ready to sell 3s.mp4`,
-  },
-  gold: {
-    grow: `${VIDEO_BASE}/b9 sunflower grows 8s.mp4`,
-    readyLoop: `${VIDEO_BASE}/b10 sunflower idle 3s.mp4`,
-    harvest: `${VIDEO_BASE}/b11 sunflower harvest 1s.mp4`,
-    sell: `${VIDEO_BASE}/b12 sunflower sell 1s.mp4`,
-    harvestedLoop: `${VIDEO_BASE}/b15 sunflower ready sell 3s.mp4`,
-  },
-} as const
+/**
+ * In LAN dev we prefer direct Express (:3000) for MP4 streaming.
+ * If mobile device cannot reach :3000, we can fallback to Vite proxy (/farm-video).
+ */
+function getFarmVideoBase(useProxy: boolean): string {
+  if (!import.meta.env.DEV || typeof window === 'undefined') {
+    return '/farm-video'
+  }
+  if (useProxy) return '/farm-video'
+  const { hostname } = window.location
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return '/farm-video'
+  }
+  return `http://${hostname}:${DEFAULT_DEV_BACKEND_PORT}/farm-video`
+}
+
+/** Encode path segment (filenames contain spaces) for mobile WebKit. */
+function farmVideoSrc(filename: string, useProxy = false): string {
+  return encodeURI(`${getFarmVideoBase(useProxy)}/${filename}`)
+}
+
+function buildMainFieldClips(useProxy = false) {
+  return {
+    emptyLoop: farmVideoSrc('b0 dirt land idle 3s.mp4', useProxy),
+    wheat: {
+      grow: farmVideoSrc('b1 carrot grow 3s.mp4', useProxy),
+      readyLoop: farmVideoSrc('b2 carrot idle 3s.mp4', useProxy),
+      harvest: farmVideoSrc('b3carrot harvest 1s.mp4', useProxy),
+      sell: farmVideoSrc('b4 carrot sell 1s.mp4', useProxy),
+      harvestedLoop: farmVideoSrc('b13 carrot ready sell 3s.mp4', useProxy),
+    },
+    corn: {
+      grow: farmVideoSrc('b5 corn grow 5s.mp4', useProxy),
+      readyLoop: farmVideoSrc('b6 corn idle 3s.mp4', useProxy),
+      harvest: farmVideoSrc('b7 corn harvest 1s.mp4', useProxy),
+      sell: farmVideoSrc('b8 corn sell 1s.mp4', useProxy),
+      harvestedLoop: farmVideoSrc('b14 corn ready to sell 3s.mp4', useProxy),
+    },
+    gold: {
+      grow: farmVideoSrc('b9 sunflower grows 8s.mp4', useProxy),
+      readyLoop: farmVideoSrc('b10 sunflower idle 3s.mp4', useProxy),
+      harvest: farmVideoSrc('b11 sunflower harvest 1s.mp4', useProxy),
+      sell: farmVideoSrc('b12 sunflower sell 1s.mp4', useProxy),
+      harvestedLoop: farmVideoSrc('b15 sunflower ready sell 3s.mp4', useProxy),
+    },
+  }
+}
 
 type MainFieldClipState = {
   src: string
@@ -93,11 +117,11 @@ const COMMAND_CATEGORIES: CommandCategory[] = [
     entries: [
       {
         cmd: 'if / else (money)',
-        insertAs: `if (money >= 50) {\n    plant('corn')\n} else {\n    plant('carrot')\n}`,
+        insertAs: `if (/* condition */) {\n    \n} else {\n    \n}`,
       },
       {
         cmd: 'if / else if (state)',
-        insertAs: `if (state === 'ready') {\n    harvest()\n} else if (state === 'harvested') {\n    sell()\n}`,
+        insertAs: `if (/* condition */) {\n    \n} else if (/* condition */) {\n    \n} else {\n    \n}`,
       },
     ],
   },
@@ -106,11 +130,11 @@ const COMMAND_CATEGORIES: CommandCategory[] = [
     entries: [
       {
         cmd: 'while loop (auto farm)',
-        insertAs: `while (money < 500) {\n    checkLoopLimit()\n    if (state === 'empty') {\n        plant('corn')\n    } else if (state === 'ready') {\n        harvest()\n    } else if (state === 'harvested') {\n        sell()\n    }\n}`,
+        insertAs: `while (/* condition */) {\n    checkLoopLimit()\n    \n}`,
       },
       {
         cmd: 'for loop x5',
-        insertAs: `for (let i = 0; i < 5; i++) {\n    plant('carrot')\n    await wait(3)\n    harvest()\n    sell()\n}`,
+        insertAs: `for (let i = 0; i < /* count */; i++) {\n    \n}`,
       },
     ],
   },
@@ -146,11 +170,14 @@ export default function App() {
   const [advisorLoading, setAdvisorLoading] = useState(false)
   const [advisorReply, setAdvisorReply] = useState('')
   const [advisorErr, setAdvisorErr] = useState<string | null>(null)
-  const [mainFieldClip, setMainFieldClip] = useState<MainFieldClipState>({
-    src: MAIN_FIELD_CLIPS.emptyLoop,
+  const [videoViaProxy, setVideoViaProxy] = useState(false)
+
+  const mainFieldClips = useMemo(() => buildMainFieldClips(videoViaProxy), [videoViaProxy])
+  const [mainFieldClip, setMainFieldClip] = useState<MainFieldClipState>(() => ({
+    src: farmVideoSrc('b0 dirt land idle 3s.mp4', false),
     loop: true,
     token: 0,
-  })
+  }))
 
   const {
     money,
@@ -162,6 +189,7 @@ export default function App() {
     resetGame,
     setLogs,
     runUserCode,
+    stopExecution,
     peekMoney,
     chargeCoins,
   } = useGameLogic()
@@ -222,13 +250,6 @@ export default function App() {
     return () => window.clearInterval(id)
   }, [challengeMode])
 
-  useEffect(() => {
-    if (!challengeMode) return
-    if (money >= CHALLENGE_GOAL) {
-      endChallengeFn.current()
-    }
-  }, [challengeMode, money])
-
   const startChallenge = () => {
     const name = window.prompt(t.challengePrompt) || 'Anonymous'
     setPlayerName(name.trim().slice(0, 50) || 'Anonymous')
@@ -263,6 +284,11 @@ export default function App() {
 
   const clearOutputLog = useCallback(() => setLogs([]), [])
   const clearCodeEditor = useCallback(() => setCode(''), [])
+  const stopCodeExecution = useCallback(() => {
+    if (!isExecuting) return
+    stopExecution()
+    addLog('⏹️ Stopping execution...', 'error')
+  }, [addLog, isExecuting, stopExecution])
 
   const hideAutocomplete = useCallback(() => {
     setAutocompleteOpen(false)
@@ -471,14 +497,17 @@ export default function App() {
     timeLeft,
   ])
 
-  const resolveLoopClip = useCallback((state: FarmState, crop: CropKey | ''): string => {
-    if (state === FarmState.EMPTY) return MAIN_FIELD_CLIPS.emptyLoop
-    if (!crop) return MAIN_FIELD_CLIPS.emptyLoop
-    if (state === FarmState.GROWING) return MAIN_FIELD_CLIPS[crop].grow
-    if (state === FarmState.READY) return MAIN_FIELD_CLIPS[crop].readyLoop
-    if (state === FarmState.HARVESTED) return MAIN_FIELD_CLIPS[crop].harvestedLoop
-    return MAIN_FIELD_CLIPS.emptyLoop
-  }, [])
+  const resolveLoopClip = useCallback(
+    (state: FarmState, crop: CropKey | ''): string => {
+      if (state === FarmState.EMPTY) return mainFieldClips.emptyLoop
+      if (!crop) return mainFieldClips.emptyLoop
+      if (state === FarmState.GROWING) return mainFieldClips[crop].grow
+      if (state === FarmState.READY) return mainFieldClips[crop].readyLoop
+      if (state === FarmState.HARVESTED) return mainFieldClips[crop].harvestedLoop
+      return mainFieldClips.emptyLoop
+    },
+    [mainFieldClips],
+  )
 
   useEffect(() => {
     const previousState = prevFarmState.current
@@ -492,20 +521,20 @@ export default function App() {
       farmState === FarmState.HARVESTED &&
       currentCrop
     ) {
-      next = { src: MAIN_FIELD_CLIPS[currentCrop].harvest, loop: false, token: Date.now() }
+      next = { src: mainFieldClips[currentCrop].harvest, loop: false, token: Date.now() }
     } else if (
       previousState === FarmState.HARVESTED &&
       farmState === FarmState.EMPTY &&
       previousCrop &&
       money > previousMoney
     ) {
-      next = { src: MAIN_FIELD_CLIPS[previousCrop].sell, loop: false, token: Date.now() }
+      next = { src: mainFieldClips[previousCrop].sell, loop: false, token: Date.now() }
     } else if (
       previousState === FarmState.EMPTY &&
       farmState === FarmState.GROWING &&
       currentCrop
     ) {
-      next = { src: MAIN_FIELD_CLIPS[currentCrop].grow, loop: false, token: Date.now() }
+      next = { src: mainFieldClips[currentCrop].grow, loop: false, token: Date.now() }
     } else {
       next = {
         src: resolveLoopClip(farmState, currentCrop),
@@ -522,7 +551,7 @@ export default function App() {
     prevFarmState.current = farmState
     prevCrop.current = currentCrop
     prevMoney.current = money
-  }, [farmState, currentCrop, money, resolveLoopClip])
+  }, [farmState, currentCrop, money, mainFieldClips, resolveLoopClip])
 
   const onMainFieldClipEnd = useCallback(() => {
     setMainFieldClip({
@@ -531,6 +560,17 @@ export default function App() {
       token: Date.now(),
     })
   }, [farmState, currentCrop, resolveLoopClip])
+
+  const onMainFieldClipError = useCallback(() => {
+    if (videoViaProxy) return
+    setVideoViaProxy(true)
+    setMainFieldClip((prev) => {
+      const i = prev.src.indexOf('/farm-video/')
+      const fallbackSrc = i >= 0 ? prev.src.slice(i) : prev.src
+      return { ...prev, src: fallbackSrc, token: Date.now() }
+    })
+    addLog('⚠️ Video switched to proxy mode for this device.', 'error')
+  }, [addLog, videoViaProxy])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -860,15 +900,18 @@ export default function App() {
                         ))}
                       </div>
 
+                      {/* preload=metadata: lighter than "auto" when many browsers stream from one laptop */}
                       <video
                         key={`${mainFieldClip.src}-${mainFieldClip.token}`}
                         src={mainFieldClip.src}
+                        crossOrigin="anonymous"
                         autoPlay
                         muted
                         playsInline
-                        preload="auto"
+                        preload="metadata"
                         loop={mainFieldClip.loop}
                         onEnded={onMainFieldClipEnd}
+                        onError={onMainFieldClipError}
                         className="absolute inset-0 w-full h-full object-cover z-10"
                       />
                       <div className="absolute inset-x-0 bottom-2 sm:bottom-3 z-20 flex justify-center pointer-events-none">
@@ -1004,6 +1047,17 @@ export default function App() {
                       >
                         <Play className={`w-4 h-4 fill-current ${isExecuting ? 'animate-spin' : ''}`} />
                         {isExecuting ? t.executeProcessing : t.executeRun}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCodeExecution}
+                        disabled={!isExecuting}
+                        className="h-16 px-5 glass-panel rounded-[1.5rem] flex items-center justify-center gap-2 border border-white/10 text-white/80 hover:bg-red-500/15 hover:text-red-300 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        aria-label="Stop execution"
+                        title="Stop execution"
+                      >
+                        <Square className="w-4 h-4 fill-current" />
+                        <span className="text-xs font-black uppercase tracking-widest">Stop</span>
                       </button>
                       <button
                         type="button"

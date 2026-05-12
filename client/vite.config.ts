@@ -11,13 +11,14 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true,
     proxy: {
+      // 127.0.0.1 avoids Windows resolving `localhost` to ::1 while Node listens on IPv4 only
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
       // Farm loop MP4s are served by Express from repo root `farm video/`
       '/farm-video': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
     },
